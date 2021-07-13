@@ -1,118 +1,118 @@
-# Hayward SMART TEMP wifi module integration into home automation dashboard
+# Hayward SMART TEMP Wifi Module tools
 
-TL;DR:
-    Linux tools to read status value from a Hayward heat pump smart temp wifi module
+## **TL;DR:**
 
-Long form:
+This is a couple of Linux command line tools to read status from a __[Hayward heat pump smart temp wifi module](https://archive.is/wip/cLCuw)__
 
-    Where I curently live, Hayward sells swimming pool heat pumps that optionally
-    come with a Wifi module called "Smart Temp".
+## **Long form:**
 
-    Hayward product reference is HWX95005010014
+Where I curently live, __[Hayward](https://global.hayward.com/)__ sells swimming pool heat pumps that optionally
+come with a Wifi module called "Smart Temp".
 
-    The contraption is supposed to let you control your heat pump with your phone.
+Hayward product reference is __[HWX95005010014](https://archive.is/wip/cLCuw)__
 
-    In practice the thing seems to be a thin shell around some sort of standard
-    industrial serial controller (RS-422 or RS-485 or the like). The shell
-    basically adds TCP and Wifi and wraps control data into some sort of
-    opaque protocol.
+The contraption is supposed to let you control your heat pump with your phone.
 
-    With a little bit of work, it can actually be made to regurgitate useful
-    state information from the heat pump and integrate those into your home
-    automation dashboard.
+In practice the thing seems to be a thin shell around some sort of standard
+industrial serial controller (RS-422 or RS-485 or the like).
 
-    Running a cron script every 5mn on my Linux home automation server, I can
-    now read from the heat pump the values below and dump them into an influxdb
-    time series database so I can display pool status in a Grafana dashboard.
+Said shell basically adds TCP and Wifi and wraps control data into some
+sort of opaque proprietary protocol.
 
-        - is the heat pump on or off?
-        - what is the incoming water temperature?
-        - what is the outgoing water temperature?
+With a little bit of work, it can actually be made to regurgitate useful
+heat pump state information and integrate those into your home automation
+dashboard.
 
-    At this point the tools in this repo don't allow you to *control* the heat pump,
-    just read some of the status variables.
+Running a cron script every 5mn on my Linux home automation server, I can
+now read from the heat pump the values below and dump them into an influxdb
+time series database so I can display pool status in a Grafana dashboard:
 
-    I have only reverse-engineered some of the data dump and none of the control
-    protocol because in my home, the pool heat pump is slave (via the water pressure sensor)
-    to a centralized pool management system that controls chemistry, filtration, temperature, etc ...
++ is the heat pump on or off?
++ what is the incoming water temperature?
++ what is the outgoing water temperature?
 
-    So at my home, giving direct orders to the heat pump is entirely moot since
-    they'll be overridden.
+At this point the tools in this repo don't allow you to *control* the heat
+pump, just read some of its status variables.
 
-    If you get around to reverse-engineer more of the protocol, submit a PR.
+I have only reverse-engineered some of the data dump and none of the control
+protocol because in my home, the pool heat pump is slave (via the water pressure sensor)
+to a centralized pool management system that controls chemistry, filtration, temperature, etc ...
+and therefore, giving direct orders to the heat pump is entirely moot since they'll be overridden.
 
-    In practice, the device comes with a laundry list of problems:
+If someone gets around to reverse-engineer more of the protocol, please submit a PR (is it MQTT? who knows.)
 
-        - it's flaky (needs to be restarted regularly). Luckily, the electricity
-          company around here is also flaky, so we get "free reboots" on a regular
-          basis, it all works out :\
+## In practice, the device comes with a laundry list of problems:
 
-        - the phone application is not particularly useful: you can't get any data
-          out of it other than using your eyes to read, and much less remote control it.
++ it's flaky (needs to be restarted regularly). Luckily, the electricity
+  company around here is also flaky, so we get "free reboots" on a regular
+  basis, it all works out :-\
 
-        - both the "smart temp" device and the phone app are pieces of chinesium that
-          hayward bough wholesale from a company called "Beijing Simple-WiFi Co.Ltd."
-          the design of the system leaves a lot to be desired. Looks like security by
-          shallow obscurity was the order of the day when this was designed.
++ the phone application is not particularly useful: you can't get any data
+  out of it other than using your eyes to read, and much less remote control it.
 
-        - both the data and control protocol are undocumented
++ both the "smart temp" device and the phone app are pieces of chinesium that
+  hayward bough wholesale from a company called "Beijing Simple-WiFi Co.Ltd."
+  the design of the system leaves a lot to be desired. Looks like security by
+  shallow obscurity was the order of the day when this was designed.
 
-        - the wifi device firmare does the following:
++ both the data and control protocol are undocumented
 
-            - first time config:
++ the wifi device firmare does the following:
 
-                - set it to AP by pressing a button on the front panel
+  + first time config:
 
-                - connect your phone or PC to it
+    + set it to AP by pressing a button on the front panel
+    + connect your phone or PC to it
+    + go to http://192.168.2.100 to feed it useful info, such as your Wifi connection info
 
-                - go to http://192.168.2.100 to feed it useful info, such as your Wifi connection ino
+  + once properly configured, the device provides:
 
-            - once properly configured, the device provides:
+    + a web server on port 80 "protected" by a password
+    + something that reads and write raw TCP on port 60000
+    + when you connect to port 60000, the thing produces a continuous
+      stream of data that is a dump *all* config info, including admin
+      password, wifi AP password, heat pump data, the whole nine yard.
+    + yes, you read correctly: that thing is a device *OUTSIDE OF YOUR HOUSE*
+      that you can connect to with the press of a button (config mode) and
+      that will dump all security info, including the password to your home
+      router  out on port 60000. Neat isn't it?
 
-                - a web server on port 80 "protected" by a password
+## How the tools works:
 
-                - something that reads and write raw TCP on port 60000
++ just run:
 
-                - when you connect to port 60000, the thing produces a continuous
-                  stream of data that is a dump *all* config info, including admin
-                  password, wifi AP password, heat pump data, the whole nine yard.
+        /bin/bash hpump.sh <IP address of your smart temp wifi module>
 
-            - yes, you read correctly: that thing is a device *OUTSIDE OF YOUR HOUSE*
-              that you can connect to with the press of a button (config mode) and
-              that will dump all security info, including the password to your home
-              router  out on port 60000. Neat isn't it?
++ hpump.sh uses netcat to capture a chunk of the data stream that comes
+  out of port 60000 of the wifi module and store it in a file
 
-How the tools works:
++ hpump.sh then runs hpump.py which parses the data dump to extract
+  useful information and print it to stdout
 
-    - /bin/bash hpump.sh <IP address of your smart temp wifi module>
+## What the protocol look like:
 
-    - hpump.sh uses netcat to capture a chunk of the data stream that comes
-      out of port 60000 of the wifi module and sore it in a file
++ it's a stream of binary data
 
-    - hpump.sh then runs hpump.py which parses the data dump to extract
-      useful information and print it to stdout
++ every once in a while the device spits out a HTTP header to trick
+  a browser into believing it actually speaks HTTP.
 
-What the protocol look like:
++ it then proceeds to spitting out binary data which the browser ... does what
+  it can with (i.e. displays garbage).
 
-    - it's a stream of binary data
++ data is dumped in chunks
 
-    - every once in a while it spits out a HTTP header to let a browser
-      believe it speaks HTTP. It then proceeds to spitting out binary data
-      which the browser ... does what it can with (i.e. displays garbage).
++ all chunks start with the header 0xAA 0x5A 0xB1
 
-    - data is dumped in chunks
++ the next two bytes are the chunk type
 
-    - all chunks start with the header 0xAA 0x5A 0xB1
++ the chunk types seem to be either
 
-    - the next two bytes are the chunk type
+        0x80 <sub type>
+        0xD0 <sub type>
 
-    - the chunk types seem to be either
-            0x80 <sub type>
-            0xD0 <sub type>
++ chunks of type 0x80 contains various config strings
 
-    - chunks of type 0x80 contains various config strings
++ chunks of type 0xD0 contains among other things data dump from sensors
 
-    - chunks of type 0xD0 contains among other things data dump from sensors
-
-    - see hpump.py for details on parsing useful stuff out of the stream
++ see hpump.py for all the gory details
 
