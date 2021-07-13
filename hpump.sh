@@ -17,7 +17,7 @@ echo done.
 echo
 
 # parse
-echo 'parsing binary strem to extract relevnt info ...'
+echo 'parsing binary stream to extract relevnt info ...'
 echo
 python3 hpump.py || (echo 'python3 failed ... maybe install it?'; exit 1)
 rm -f raw.bin
