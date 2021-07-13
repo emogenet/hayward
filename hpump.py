@@ -120,7 +120,7 @@ def parse(
         return True
     elif (0xd0==hdrType[0]) and (0x01==hdrType[1]):
 
-        # this one's got current time (incorrect) and temps sure in it
+        # this one's got current time (incorrect btw) and temps in it
 
         hour = byteArray[25]
         minute = byteArray[26]
